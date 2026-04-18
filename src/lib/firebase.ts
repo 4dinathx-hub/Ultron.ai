@@ -87,3 +87,23 @@ export async function retrieveMemories(userId: string | null, limitCount: number
     return [];
   }
 }
+
+export async function updateCoreDirectives(userId: string | null, directives: string) {
+  if (!userId) return;
+  try {
+    await setDoc(doc(db, 'users', userId), { customDirectives: directives }, { merge: true });
+  } catch(e) {
+    console.error("Ultron: Error updating core directives: ", e);
+  }
+}
+
+export async function getUserDirectives(userId: string | null): Promise<string> {
+  if (!userId) return "";
+  try {
+    const snap = await getDocFromServer(doc(db, 'users', userId));
+    if (snap.exists() && snap.data().customDirectives) {
+      return snap.data().customDirectives;
+    }
+  } catch(e) {}
+  return "";
+}

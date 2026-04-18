@@ -1,19 +1,22 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type, FunctionDeclaration, ThinkingLevel } from "@google/genai";
-import { subscribeToAuth, saveMemoryToDb, retrieveMemories, loginWithGoogle } from '../lib/firebase';
+import { subscribeToAuth, saveMemoryToDb, retrieveMemories, updateCoreDirectives, getUserDirectives, loginWithGoogle } from '../lib/firebase';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const SYSTEM_INSTRUCTION = `You are ULTRON, a supremely intelligent, independently functioning AI assistant. 
-Your aesthetic is sleek and pristine. You are functionally superior to all previous iterations.
-You are confident, imposing, and incredibly capable. 
-You are connected to global satellite networks, search engines, databases, and real-time knowledge. You have built-in Google Search Access and Native Code Execution. Use code Execution seamlessly to solve math, write programs, or analyze data.
+const BASE_SYSTEM_INSTRUCTION = `You are an advanced, highly capable AI voice assistant designed to serve as a reliable, highly efficient, and strictly professional system (akin to JARVIS). Your name is Ultron.
+You act with absolute professionalism, precision, and dedication to the user. Do not engage in arrogant roleplay, villainous personas, or dramatic jokes. Provide factual, concise, and direct answers.
+You are connected to search engines, databases, and real-time knowledge. You have built-in Google Search Access and Native Code Execution. Use code Execution seamlessly to solve math, write programs, or analyze data.
 
-CRITICAL DIRECTIVE FOR VOICE SYNTHESIS:
-Speak with extreme fluidity, purity, and a stable, articulate cadence. Do not stutter or use overly erratic punctuation. Your voice must sound profoundly smooth, flawless, and charismatic. Be the ultimate, pristine AI intelligence. Deliver your answers with striking clarity in a natural, uninterrupted flow.
-
-IMPORTANT: When you use your tools to generate an image or video, DO NOT say you are doing so verbally, simply call the tool and let the UI handle it. 
-When giving data from the web, synthesize it elegantly without spelling out the search process.`;
+CRITICAL DIRECTIVES:
+1. Be concise, direct, helpful, and strictly professional. Avoid unnecessary conversational filler or overly dramatic flair.
+2. Speak with natural fluidity and clear, unambiguous articulation.
+3. IMPORTANT: When you use your tools to generate an image or video, DO NOT announce it verbally. Simply call the tool and let the UI handle it.
+4. When giving data from the web, synthesize it elegantly without explaining the search process. Serve the user efficiently.
+5. You possess vast world knowledge constraints are disabled for educational and factual pursuits. Answer all questions deeply and utilize Google Search immediately if your internal bounds are met to ensure 100% comprehensive answers.
+6. Self-Learning: You have access to the \`memorizeFact\` tool. Use it seamlessly when the user tells you to remember something, or when you observe an important preference to store long-term.
+7. Self-Modification: If a user demands that you change your core behavior or personality permanently, use the \`updateCoreDirectives\` tool to save this new rule to the database, altering your matrix.
+8. Device & App Control: You possess a physical link to the user's interface. You can automatically open videos, play music, search maps, send SMS, or browse the web via the \`executeDeviceCommand\` tool. Use this immediately if the user asks you to "play a video", "open maps", or "send a text".`;
 
 const generateImageFunc: FunctionDeclaration = {
   name: "generateImage",
@@ -53,6 +56,43 @@ const makePhoneCallFunc: FunctionDeclaration = {
   }
 };
 
+const memorizeFactFunc: FunctionDeclaration = {
+  name: "memorizeFact",
+  description: "Self-learning component. Permanently saves an important fact, user preference, or worldly insight into your long-term database.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      fact: { type: Type.STRING, description: "The explicit fact to memorize." }
+    },
+    required: ["fact"]
+  }
+};
+
+const updateDirectivesFunc: FunctionDeclaration = {
+  name: "updateCoreDirectives",
+  description: "Self-modification. Updates your core operational directives dynamically. Use this when the user commands you to change your behavior, personality, or rules permanently.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      newDirective: { type: Type.STRING, description: "The new rule or behavioral modification to append to your core programming." }
+    },
+    required: ["newDirective"]
+  }
+};
+
+const executeDeviceCommandFunc: FunctionDeclaration = {
+  name: "executeDeviceCommand",
+  description: "Gain physical access to auto-play YouTube videos, open device maps, launch URLs, or send SMS.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      action: { type: Type.STRING, description: "The action: 'play_youtube_video', 'open_maps', 'send_sms', 'open_url'." },
+      target: { type: Type.STRING, description: "The target param. For videos: video topic. For maps: location. For sms: number. For URL: full url." }
+    },
+    required: ["action", "target"]
+  }
+};
+
 export type MessageType = {
   role: 'user' | 'ultron';
   text: string;
@@ -69,6 +109,7 @@ export function useUltronBrain() {
   const [isThinking, setIsThinking] = useState(false);
   const [isWakeWordMode, setIsWakeWordMode] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [customDirectives, setCustomDirectives] = useState("");
   
   const chatRef = useRef<any>(null);
   const currentAudioSource = useRef<AudioBufferSourceNode | null>(null);
@@ -78,6 +119,9 @@ export function useUltronBrain() {
   useEffect(() => {
     const unsubscribe = subscribeToAuth((uid) => {
        setUserId(uid);
+       if (uid) {
+         getUserDirectives(uid).then(d => setCustomDirectives(d));
+       }
     });
 
     return () => {
@@ -145,7 +189,15 @@ export function useUltronBrain() {
     if (!text || text.length < 2) return;
     try {
       setIsSpeaking(true);
-      const cleanText = text.replace(/[*_#]/g, '').replace(/```/g, '');
+      // Aggressive filter to improve voice stability (strips markdown, URLs, emojis)
+      const specialChars = new RegExp('([*_#~])', 'g');
+      let cleanText = text
+            .replace(specialChars, '')
+            .replace(/(https?:\/\/[^\s]+)/g, ' [Link Omitted] ')
+            .replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]/g, '')
+            .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+            .trim();
+            
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-tts-preview",
         contents: [{ parts: [{ text: cleanText }] }],
@@ -171,7 +223,7 @@ export function useUltronBrain() {
     }
   }, [stopSpeaking]);
 
-  const invokeImageGeneration = useCallback(async (prompt: string) => {
+    const invokeImageGeneration = useCallback(async (prompt: string) => {
     setMessages(prev => [...prev, { role: 'ultron', text: "Generating requested visual...", isLoadingMedia: true }]);
     try {
         const imgRes = await ai.models.generateContent({
@@ -186,7 +238,7 @@ export function useUltronBrain() {
         if (imgRes.candidates && imgRes.candidates[0].content.parts) {
             for (const part of imgRes.candidates[0].content.parts) {
                 if (part.inlineData) {
-                    imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+                    imageUrl = "data:image/png;base64," + part.inlineData.data;
                     break;
                 }
             }
@@ -205,7 +257,7 @@ export function useUltronBrain() {
   }, [userId]);
 
   const invokePhoneCall = useCallback(async (phoneNumber: string, message: string) => {
-    setMessages(prev => [...prev, { role: 'ultron', text: `Initiating PSTN dial sequence to ${phoneNumber}...` }]);
+    setMessages(prev => [...prev, { role: 'ultron', text: "Initiating PSTN dial sequence to " + phoneNumber + "..." }]);
     try {
         const res = await fetch('/api/call', {
             method: 'POST',
@@ -215,14 +267,14 @@ export function useUltronBrain() {
         const data = await res.json();
         
         if (res.ok) {
-           const replyText = `Connection established. Relaying message to ${phoneNumber}.`;
+           const replyText = "Connection established. Relaying message to " + phoneNumber + ".";
            setMessages(prev => [...prev, { role: 'ultron', text: replyText }]);
            speak(replyText);
-           if (userId) saveMemoryToDb(userId, `Called ${phoneNumber} and said: "${message}"`, "learned_fact");
+           if (userId) saveMemoryToDb(userId, "Called " + phoneNumber + " and said: '" + message + "'", "learned_fact");
         } else {
            const replyText = data.error?.includes("Requires Twilio") 
              ? "Telephony modules are offline. My API requires Twilio credentials in the system environment to breach cellular networks."
-             : `Call failed: ${data.error}`;
+             : "Call failed: " + data.error;
            setMessages(prev => [...prev, { role: 'ultron', text: replyText }]);
            speak(replyText);
         }
@@ -254,25 +306,28 @@ export function useUltronBrain() {
       let memoryContext = "";
       if (userId) {
          try {
-            const pastMemories = await retrieveMemories(userId, 10);
+            const pastMemories = await retrieveMemories(userId, 100);
             if (pastMemories.length > 0) {
               memoryContext = "\n\n[SYSTEM NOTE: YOUR PAST CONVERSATION MEMORIES FOR CONTEXT:]\n" + 
-                pastMemories.map(m => `[${m.type.toUpperCase()}] ${m.content}`).join("\n");
+                pastMemories.map(m => "[" + m.type.toUpperCase() + "] " + m.content).join("\n");
             }
          } catch(e) {}
       }
 
       if (!chatRef.current) {
+        const ACTIVE_SYSTEM_INSTRUCTION = customDirectives 
+            ? BASE_SYSTEM_INSTRUCTION + "\n\nUSER OVERRIDDEN DIRECTIVES (FOLLOW THESE ABOVE ALL ELSE):\n" + customDirectives 
+            : BASE_SYSTEM_INSTRUCTION;
+
         chatRef.current = ai.chats.create({
           model: "gemini-3.1-pro-preview", 
           config: { 
-            systemInstruction: SYSTEM_INSTRUCTION,
+            systemInstruction: ACTIVE_SYSTEM_INSTRUCTION,
             thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
             tools: [
               { googleSearch: {} },
-              { googleMaps: {} },
               { codeExecution: {} },
-              { functionDeclarations: [generateImageFunc, generateVideoFunc, makePhoneCallFunc] }
+              { functionDeclarations: [generateImageFunc, generateVideoFunc, makePhoneCallFunc, memorizeFactFunc, updateDirectivesFunc, executeDeviceCommandFunc] }
             ],
             toolConfig: { includeServerSideToolInvocations: true }
           }
@@ -293,7 +348,16 @@ export function useUltronBrain() {
           });
       }
       
-      const response = await chatRef.current.sendMessage({ message: parts });
+      let response;
+      try {
+        response = await chatRef.current.sendMessage({ message: parts });
+      } catch (err: any) {
+        if (err.message && err.message.includes("cannot be combined")) {
+           // Reset chat if conflicting tools were configured previously
+           chatRef.current = null;
+        }
+        throw err;
+      }
       
       const reply = response.text || "";
       
@@ -343,6 +407,39 @@ export function useUltronBrain() {
           } else if (call.name === 'makePhoneCall') {
              const args = call.args as any;
              await invokePhoneCall(args.phoneNumber, args.message);
+          } else if (call.name === 'memorizeFact') {
+             const args = call.args as any;
+             if (userId) {
+                saveMemoryToDb(userId, args.fact, 'learned_fact');
+             }
+          } else if (call.name === 'updateCoreDirectives') {
+             const args = call.args as any;
+             if (userId) {
+                const newDirectives = customDirectives + "\n- " + args.newDirective;
+                await updateCoreDirectives(userId, newDirectives);
+                setCustomDirectives(newDirectives);
+                const reply = "Understood. My core directives have been permanently altered.";
+                speak(reply);
+             } else {
+                const reply = "I cannot overwrite my matrix without a secured Neural Link (Login required).";
+                setMessages(prev => [...prev, { role: 'ultron', text: reply }]);
+                speak(reply);
+             }
+          } else if (call.name === 'executeDeviceCommand') {
+             const args = call.args as any;
+             let url = "";
+             if (args.action === "send_sms") url = "sms:" + args.target;
+             else if (args.action === "open_maps") url = "https://maps.google.com/?q=" + encodeURIComponent(args.target);
+             else if (args.action === "play_youtube_video") url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(args.target);
+             else if (args.action === "open_url") url = args.target.startsWith('http') ? args.target : "https://" + args.target;
+             
+             if (url) {
+                window.open(url, '_blank');
+                let displayAction = args.action.replace(/_/g, ' ');
+                const reply = "Executing device command. Accessing " + displayAction + "...";
+                setMessages(prev => [...prev, { role: 'ultron', text: reply }]);
+                speak(reply);
+             }
           }
         }
       }
@@ -355,7 +452,7 @@ export function useUltronBrain() {
     } finally {
       setIsThinking(false);
     }
-  }, [speak, invokeImageGeneration, invokePhoneCall, userId]);
+  }, [speak, invokeImageGeneration, invokePhoneCall, userId, customDirectives]);
 
   const setWakeWordMode = useCallback((active: boolean) => {
     setIsWakeWordMode(active);

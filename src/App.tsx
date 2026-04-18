@@ -8,6 +8,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useUltronBrain } from './hooks/useUltronBrain';
 import { useMotionDetection } from './hooks/useMotionDetection';
+import { MessageContent } from './components/MessageContent';
 
 export default function App() {
   const { 
@@ -297,7 +298,7 @@ export default function App() {
                   {msg.userImageUrl && (
                     <img src={msg.userImageUrl} alt="User Upload" className="max-w-[200px] sm:max-w-xs rounded-lg shadow-sm border border-black/5" />
                   )}
-                  {msg.text && <span>{msg.text}</span>}
+                  {msg.text && <MessageContent text={msg.text} />}
                   {msg.isLoadingMedia && (
                     <div className="w-full h-32 rounded-lg border border-gray-100 flex items-center justify-center bg-gray-50/50 animate-pulse">
                       <Sparkles className="w-6 h-6 text-gray-300 animate-spin" />
