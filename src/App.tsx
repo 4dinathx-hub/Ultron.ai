@@ -5,6 +5,7 @@
 
 import { Menu, Scaling, User, Image as ImageIcon, Activity, Globe, TerminalSquare, Plus, Mic, Sparkles, X, Ear, Settings, Video, Phone, Shield, Radio, Cpu } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { useUltronBrain } from './hooks/useUltronBrain';
 import { useMotionDetection } from './hooks/useMotionDetection';
 
@@ -12,7 +13,8 @@ export default function App() {
   const { 
     messages, isSpeaking, isListening, isThinking, 
     startListening, handleQuery, sayYesSir, stopSpeaking,
-    isWakeWordMode, setWakeWordMode, invokePhoneCall
+    isWakeWordMode, setWakeWordMode, invokePhoneCall,
+    userId, loginWithGoogle
   } = useUltronBrain();
   
   const [inputText, setInputText] = useState('');
@@ -26,8 +28,8 @@ export default function App() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Hidden motion detection for the "wave" gesture!
-  const { videoRef, canvasRef, isActive } = useMotionDetection(sayYesSir);
+  // Hidden motion detection for the gesture/activity lighting (removed speech to stop spam)
+  const { videoRef, canvasRef, isActive } = useMotionDetection(() => {});
 
   useEffect(() => {
     if (bottomRef.current) {
@@ -211,9 +213,14 @@ export default function App() {
             className="w-5 h-5 text-gray-400 cursor-pointer hover:text-emerald-500 transition transform hover:scale-110" 
             onClick={() => setIsControlOpen(true)}
           />
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200">
-            <User className="w-4 h-4 text-gray-600" />
-          </div>
+          <button 
+            type="button"
+            onClick={() => !userId && loginWithGoogle()}
+            title={userId ? "Neural Link Established" : "Connect Neural Link (Login)"}
+            className={`w-8 h-8 rounded-full flex items-center justify-center border transition ${userId ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-100 border-gray-200 hover:bg-gray-200 cursor-pointer'}`}
+          >
+            <User className={`w-4 h-4 ${userId ? 'text-emerald-600' : 'text-gray-600'}`} />
+          </button>
         </div>
       </header>
 
@@ -267,8 +274,11 @@ export default function App() {
         ) : (
           <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto pb-8">
             {messages.map((msg, idx) => (
-              <div 
+              <motion.div 
                 key={idx} 
+                initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
                 className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {msg.role === 'ultron' && (
@@ -300,16 +310,20 @@ export default function App() {
                     <video src={msg.videoUrl} controls autoPlay loop className="w-full max-w-sm rounded-lg shadow-sm border border-gray-200" />
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
             
             {isThinking && (
-              <div className="flex w-full justify-start items-center">
+              <motion.div 
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex w-full justify-start items-center"
+              >
                  <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center border border-slate-700 shrink-0 mr-4 self-start mt-1 animate-pulse">
                     <Sparkles className="w-4 h-4 text-white" />
                   </div>
                   <div className="text-gray-400 font-medium animate-pulse">Accessing node...</div>
-              </div>
+              </motion.div>
             )}
             <div ref={bottomRef} className="h-4"></div>
           </div>

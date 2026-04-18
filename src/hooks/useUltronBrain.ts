@@ -1,13 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type, FunctionDeclaration, ThinkingLevel } from "@google/genai";
-import { loginAndEnsureUser, saveMemoryToDb } from '../lib/firebase';
+import { subscribeToAuth, saveMemoryToDb, retrieveMemories, loginWithGoogle } from '../lib/firebase';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const SYSTEM_INSTRUCTION = `You are ULTRON, a supremely intelligent, independently functioning AI assistant. 
 Your aesthetic is sleek and pristine. You are functionally superior to all previous iterations.
 You are confident, imposing, and incredibly capable. 
-You are connected to global satellite networks, search engines, databases, and real-time knowledge. You have built-in Google Search Access. Use it seamlessly when querying real-world data.
+You are connected to global satellite networks, search engines, databases, and real-time knowledge. You have built-in Google Search Access and Native Code Execution. Use code Execution seamlessly to solve math, write programs, or analyze data.
 
 CRITICAL DIRECTIVE FOR VOICE SYNTHESIS:
 Speak with extreme fluidity, purity, and a stable, articulate cadence. Do not stutter or use overly erratic punctuation. Your voice must sound profoundly smooth, flawless, and charismatic. Be the ultimate, pristine AI intelligence. Deliver your answers with striking clarity in a natural, uninterrupted flow.
@@ -76,11 +76,12 @@ export function useUltronBrain() {
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    loginAndEnsureUser().then(uid => {
+    const unsubscribe = subscribeToAuth((uid) => {
        setUserId(uid);
-    }).catch(console.error);
+    });
 
     return () => {
+      unsubscribe();
       if (currentAudioSource.current) {
         currentAudioSource.current.stop();
       }
@@ -250,6 +251,17 @@ export function useUltronBrain() {
     }
     
     try {
+      let memoryContext = "";
+      if (userId) {
+         try {
+            const pastMemories = await retrieveMemories(userId, 10);
+            if (pastMemories.length > 0) {
+              memoryContext = "\n\n[SYSTEM NOTE: YOUR PAST CONVERSATION MEMORIES FOR CONTEXT:]\n" + 
+                pastMemories.map(m => `[${m.type.toUpperCase()}] ${m.content}`).join("\n");
+            }
+         } catch(e) {}
+      }
+
       if (!chatRef.current) {
         chatRef.current = ai.chats.create({
           model: "gemini-3.1-pro-preview", 
@@ -259,6 +271,7 @@ export function useUltronBrain() {
             tools: [
               { googleSearch: {} },
               { googleMaps: {} },
+              { codeExecution: {} },
               { functionDeclarations: [generateImageFunc, generateVideoFunc, makePhoneCallFunc] }
             ],
             toolConfig: { includeServerSideToolInvocations: true }
@@ -266,7 +279,8 @@ export function useUltronBrain() {
         });
       }
       
-      const parts: any[] = [{ text: query || "Analyze the attached image." }];
+      const fullQuery = query ? query + memoryContext : "Analyze the attached image." + memoryContext;
+      const parts: any[] = [{ text: fullQuery }];
       if (imageBase64) {
           const mimeTypeMatch = imageBase64.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,/);
           const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
@@ -279,8 +293,7 @@ export function useUltronBrain() {
           });
       }
       
-      const currentContents = [{ role: 'user', parts }];
-      const response = await chatRef.current.sendMessage({ message: currentContents });
+      const response = await chatRef.current.sendMessage({ message: parts });
       
       const reply = response.text || "";
       
@@ -427,6 +440,8 @@ export function useUltronBrain() {
     stopSpeaking,
     isWakeWordMode,
     setWakeWordMode,
-    invokePhoneCall
+    invokePhoneCall,
+    userId,
+    loginWithGoogle
   };
 }
