@@ -1,0 +1,9 @@
+{
+  "name": "Ultron Assistant",
+  "description": "An incredibly capable, independent voice AI with a greenish-cream Ultron aesthetic.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

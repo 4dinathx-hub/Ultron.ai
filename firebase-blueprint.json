@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the Ultron system.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "createdAt"]
+    },
+    "Memory": {
+      "title": "Memory",
+      "description": "Core databank memories of interactions and learned facts.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["query", "response", "learned_fact"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "content", "type", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles"
+    },
+    "users/{userId}/memories/{memoryId}": {
+      "schema": { "$ref": "Memory" },
+      "description": "Ultron's long-term memory for a user"
+    }
+  }
+}

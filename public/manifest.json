@@ -1,0 +1,15 @@
+{
+  "name": "Ultron AI",
+  "short_name": "Ultron",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#FAFAFA",
+  "icons": [
+    {
+      "src": "https://www.gstatic.com/images/branding/product/1x/genai_64dp.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    }
+  ]
+}

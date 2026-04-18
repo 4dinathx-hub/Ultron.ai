@@ -1,0 +1,77 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
+
+    // --- PRIMITIVE HELPERS ---
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+
+    // --- SCHEMA VALIDATORS ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'createdAt']) && data.keys().size() <= 3
+        && data.uid is string && data.uid.size() <= 128
+        && data.createdAt == request.time
+        && ( !('email' in data) || (data.email is string && data.email.size() <= 256) );
+    }
+
+    function isValidMemory(data, uid) {
+      return data.keys().hasAll(['userId', 'content', 'type', 'timestamp']) && data.keys().size() == 4
+        && data.userId == uid
+        && data.content is string && data.content.size() <= 1048576 
+        && data.type is string && (data.type == 'query' || data.type == 'response' || data.type == 'learned_fact')
+        && data.timestamp == request.time;
+    }
+
+    // --- USERS COLLECTION ---
+    match /users/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      allow list: if false; // No blanket reads
+      allow create: if isSignedIn() 
+                    && isValidId(userId)
+                    && request.auth.uid == userId
+                    && isValidUser(incoming())
+                    && incoming().uid == userId;
+      
+      allow update: if isSignedIn() 
+                    && request.auth.uid == userId
+                    && isValidUser(incoming())
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['email'])
+                    && incoming().uid == existing().uid
+                    && incoming().createdAt == existing().createdAt;
+                    
+      allow delete: if false;
+
+      // --- MEMORIES SUBCOLLECTION ---
+      match /memories/{memoryId} {
+        // Must enforce relational membership: parent must exist (user doc)
+        allow get: if isSignedIn() 
+                   && request.auth.uid == userId 
+                   && exists(/databases/$(database)/documents/users/$(userId));
+                   
+        allow list: if isSignedIn() 
+                    && request.auth.uid == userId
+                    && resource.data.userId == request.auth.uid;
+
+        allow create: if isSignedIn()
+                      && isValidId(memoryId)
+                      && request.auth.uid == userId
+                      && exists(/databases/$(database)/documents/users/$(userId))
+                      && isValidMemory(incoming(), userId);
+
+        allow update: if false; // Memories are immutable once logged
+        allow delete: if false;
+      }
+    }
+  }
+}
