@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automotive Concept Showcase</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ff3366;
+            --text-main: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.6);
+            --bg-base: #050505;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: none; /* No cursor constraint */
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* TRACK & SLIDES */
+        .slider-track {
+            display: flex;
+            width: 200vw;
+            height: 100vh;
+            will-change: transform;
+            transition: transform 1s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+
+        .slide {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #000;
+        }
+
+        /* PARALLAX & ZOOM BACKGROUNDS */
+        .bg-parallax {
+            position: absolute;
+            top: -5vh;
+            left: -5vw;
+            width: 110vw;
+            height: 110vh;
+            will-change: transform;
+        }
+
+        .bg-image {
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0.6;
+            animation: slowZoom 25s infinite alternate linear;
+        }
+
+        .bg-gradient-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.7) 100%);
+            z-index: 1;
+        }
+
+        @keyframes slowZoom {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.15); }
+        }
+
+        /* UI LAYER */
+        .ui-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 3rem 4rem;
+        }
+
+        /* CORNER BRACKETS */
+        .corner-brackets::before, .corner-brackets::after {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: border-color 0.5s;
+        }
+        .corner-tl { top: 2rem; left: 2rem; border-right: none !important; border-bottom: none !important; }
+        .corner-tr { top: 2rem; right: 2rem; border-left: none !important; border-bottom: none !important; }
+        .corner-bl { bottom: 2rem; left: 2rem; border-right: none !important; border-top: none !important; }
+        .corner-br { bottom: 2rem; right: 2rem; border-left: none !important; border-top: none !important; }
+
+        /* NAV */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Space Mono', monospace;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            pointer-events: auto;
+        }
+        
+        .brand {
+            font-weight: 700;
+            color: var(--primary);
+            transition: color 0.8s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            animation: pulseDot 2s infinite;
+            transition: background-color 0.8s;
+        }
+
+        @keyframes pulseDot {
+            0% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0); }
+            100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
+        }
+
+        /* BOTTOM SECTION */
+        .bottom-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            width: 100%;
+        }
+
+        /* LEFT CONTENT */
+        .content-left {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-width: 600px;
+        }
+
+        .badge {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.75rem;
+            letter-spacing: 3px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: color 0.8s;
+        }
+
+        .headline {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 8rem;
+            line-height: 0.85;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hl-solid { color: #fff; }
+        .hl-outline {
+            color: transparent;
+            -webkit-text-stroke: 1px rgba(255,255,255,0.4);
+        }
+        .hl-grad {
+            background: linear-gradient(90deg, var(--primary), #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: background 0.8s;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-top: 1rem;
+            max-width: 80%;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            pointer-events: auto;
+        }
+
+        button {
+            background: transparent;
+            border: none;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 1rem 2rem;
+            position: relative;
+            overflow: hidden;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s;
+        }
+
+        button.primary-btn {
+            background: var(--primary);
+            border-color: var(--primary);
+            transition: background 0.8s, border-color 0.8s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            background: rgba(255,255,255,0.1);
+        }
+        button.primary-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* RIGHT GLASSMORPHISM CARD */
+        .glass-card {
+            background: rgba(25, 25, 25, 0.15);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 2.5rem;
+            display: flex;
+            gap: 3rem;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+        }
+
+        .stat-block {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .stat-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3.5rem;
+            line-height: 1;
+            color: var(--primary);
+            transition: color 0.8s;
+        }
+
+        /* TICKER BAR */
+        .ticker-wrap {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            overflow: hidden;
+            padding: 10px 0;
+            z-index: 5;
+        }
+
+        .ticker {
+            display: flex;
+            width: fit-content;
+            animation: tickerScroll 30s linear infinite;
+        }
+
+        .ticker-item {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            padding-right: 50px;
+        }
+
+        @keyframes tickerScroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* DYNAMIC TRANSITION CLASSES (Controlled via JS inline styles) */
+        .anim-element {
+            will-change: transform, opacity;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Slider Track -->
+    <div class="slider-track" id="track">
+        <!-- Slide 01 -->
+        <div class="slide">
+            <div class="bg-parallax">
+                <div class="bg-image" style="background-image: url('https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?q=80&w=2560&auto=format&fit=crop');"></div>
+            </div>
+            <div class="bg-gradient-overlay"></div>
+        </div>
+        <!-- Slide 02 -->
+        <div class="slide">
+            <div class="bg-parallax">
+                <div class="bg-image" style="background-image: url('https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?q=80&w=2560&auto=format&fit=crop');"></div>
+            </div>
+            <div class="bg-gradient-overlay"></div>
+        </div>
+    </div>
+
+    <!-- Ticker Bar -->
+    <div class="ticker-wrap">
+        <div class="ticker" id="ticker-content">
+            <!-- Populated by JS for infinite loop -->
+        </div>
+    </div>
+
+    <!-- UI Overlay -->
+    <div class="ui-layer">
+        <!-- Corner Brackets -->
+        <div class="corner-brackets corner-tl"></div>
+        <div class="corner-brackets corner-tr"></div>
+        <div class="corner-brackets corner-bl"></div>
+        <div class="corner-brackets corner-br"></div>
+
+        <nav>
+            <div class="brand">
+                <div class="brand-dot"></div>
+                <span id="nav-brand-text">PROJECT VELOCITY</span>
+            </div>
+            <div class="nav-links">
+                01 / 02
+            </div>
+        </nav>
+
+        <div class="bottom-section">
+            <div class="content-left">
+                <div class="badge anim-element" id="el-badge">CONCEPT SHOWCASE</div>
+                <h1 class="headline">
+                    <span class="hl-solid anim-element" id="el-h1">APEX</span>
+                    <span class="hl-outline anim-element" id="el-h2">PREDATOR</span>
+                    <span class="hl-grad anim-element" id="el-h3">GT-R</span>
+                </h1>
+                <p class="subtitle anim-element" id="el-sub">Unleashing pure aerodynamic aggression combined with state-of-the-art synthetic carbon weaving.</p>
+                
+                <div class="cta-group anim-element" id="el-cta">
+                    <button class="primary-btn">Configure</button>
+                    <button>View Specs</button>
+                </div>
+            </div>
+
+            <div class="glass-card anim-element" id="el-card">
+                <div class="stat-block">
+                    <span class="stat-label">Top Speed</span>
+                    <span class="stat-value" id="stat-1">215</span>
+                </div>
+                <div class="stat-block">
+                    <span class="stat-label">Power (HP)</span>
+                    <span class="stat-value" id="stat-2">850</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data Configuration for slides
+        const slidesData = [
+            {
+                primary: '#ff3366',
+                brandText: 'PROJECT VELOCITY',
+                badge: 'CONCEPT SHOWCASE',
+                h1: 'APEX',
+                h2: 'PREDATOR',
+                h3: 'GT-R',
+                sub: 'Unleashing pure aerodynamic aggression combined with state-of-the-art synthetic carbon weaving for maximum downforce.',
+                stat1: '215',
+                stat2: '850',
+                tickerItem: '/// GT-R CONCEPT REVEAL /// AERODYNAMIC MASTERCLASS /// HYPER-PERFORMANCE ///'
+            },
+            {
+                primary: '#00e5ff',
+                brandText: 'PROJECT NEON',
+                badge: 'CYBER ARCHITECTURE',
+                h1: 'NIGHT',
+                h2: 'RUNNER',
+                h3: 'EV-X',
+                sub: 'The next generation of silent, hyper-electric performance bridging the gap between digital interface and physical tarmac.',
+                stat1: '240',
+                stat2: '1120',
+                tickerItem: '/// EV-X ARCHITECTURE /// ZERO EMISSIONS /// INSTANT TORQUE VECTORING ///'
+            }
+        ];
+
+        let currentSlide = 0;
+        let isAnimating = false;
+
+        // Elements
+        const track = document.getElementById('track');
+        const elementsToAnimate = [
+            document.getElementById('el-badge'),
+            document.getElementById('el-h1'),
+            document.getElementById('el-h2'),
+            document.getElementById('el-h3'),
+            document.getElementById('el-sub'),
+            document.getElementById('el-cta'),
+            document.getElementById('el-card')
+        ];
+        
+        const stat1 = document.getElementById('stat-1');
+        const stat2 = document.getElementById('stat-2');
+        const brandText = document.getElementById('nav-brand-text');
+        const navLinks = document.querySelector('.nav-links');
+        const ticker = document.getElementById('ticker-content');
+
+        // Initialize Ticker
+        function updateTicker(text) {
+            ticker.innerHTML = '';
+            // Repeat text to fulfill the 50% translation infinite scroll
+            for (let i = 0; i < 6; i++) {
+                const sp = document.createElement('span');
+                sp.className = 'ticker-item';
+                sp.innerText = text;
+                ticker.appendChild(sp);
+            }
+        }
+        updateTicker(slidesData[0].tickerItem);
+
+        // Core Transition Function (Inline Styles + Forced Reflow as requested)
+        function navigateToSlide(index) {
+            if (isAnimating || index < 0 || index >= slidesData.length || index === currentSlide) return;
+            isAnimating = true;
+
+            const nextData = slidesData[index];
+
+            // 1. Pan OUT current content
+            elementsToAnimate.forEach((el, i) => {
+                el.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+                // Alternate directions for flair: text goes up, card goes down
+                el.style.transform = (el.id === 'el-card') ? 'translateY(40px)' : 'translateY(-40px)';
+                el.style.opacity = '0';
+            });
+
+            // Slide Track
+            track.style.transform = `translateX(-${index * 100}vw)`;
+
+            setTimeout(() => {
+                // 2. Apply New Data & Colors
+                document.documentElement.style.setProperty('--primary', nextData.primary);
+                
+                // Color formatting for exact RGB values for the pulsing dot
+                const hex = nextData.primary.replace('#', '');
+                const rgb = parseInt(hex.substring(0,2), 16) + ', ' + parseInt(hex.substring(2,4), 16) + ', ' + parseInt(hex.substring(4,6), 16);
+                document.documentElement.style.setProperty('--primary-rgb', rgb);
+
+                brandText.textContent = nextData.brandText;
+                document.getElementById('el-badge').textContent = nextData.badge;
+                document.getElementById('el-h1').textContent = nextData.h1;
+                document.getElementById('el-h2').textContent = nextData.h2;
+                document.getElementById('el-h3').textContent = nextData.h3;
+                document.getElementById('el-sub').textContent = nextData.sub;
+                
+                stat1.textContent = nextData.stat1;
+                stat2.textContent = nextData.stat2;
+                navLinks.textContent = `0${index + 1} / 0${slidesData.length}`;
+                
+                updateTicker(nextData.tickerItem);
+
+                // 3. FORCE REFLOW
+                elementsToAnimate.forEach(el => void el.offsetWidth);
+
+                // 4. Pan IN new content
+                // Staggered inline transitions
+                elementsToAnimate.forEach((el, i) => {
+                    const delay = (el.id === 'el-card') ? 0.3 : i * 0.05;
+                    el.style.transition = `transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${delay}s, opacity 0.6s ease ${delay}s`;
+                    el.style.transform = 'translateY(0)';
+                    el.style.opacity = '1';
+                });
+
+                currentSlide = index;
+
+                // Unlock
+                setTimeout(() => { isAnimating = false; }, 800);
+            }, 400); // 400ms matches the pan-out duration
+        }
+
+        // Navigation Listeners
+        window.addEventListener('wheel', (e) => {
+            if (e.deltaY > 50) navigateToSlide(currentSlide + 1);
+            else if (e.deltaY < -50) navigateToSlide(currentSlide - 1);
+        }, { passive: true });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigateToSlide(currentSlide + 1);
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navigateToSlide(currentSlide - 1);
+        });
+
+        let touchStartX = 0;
+        window.addEventListener('touchstart', e => {
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+        window.addEventListener('touchend', e => {
+            const touchEndX = e.changedTouches[0].clientX;
+            if (touchStartX - touchEndX > 50) navigateToSlide(currentSlide + 1);
+            if (touchEndX - touchStartX > 50) navigateToSlide(currentSlide - 1);
+        }, { passive: true });
+
+        // Mouse Parallax Effect
+        const bgParallaxLayers = document.querySelectorAll('.bg-parallax');
+        window.addEventListener('mousemove', (e) => {
+            // Calculate offset from center (-1 to 1) multiplied by magnitude
+            const x = (e.clientX / window.innerWidth - 0.5) * -40; // max 20px move
+            const y = (e.clientY / window.innerHeight - 0.5) * -40;
+            
+            bgParallaxLayers.forEach(layer => {
+                layer.style.transform = `translate(${x}px, ${y}px)`;
+            });
+        });
+        
+    </script>
+</body>
+</html>

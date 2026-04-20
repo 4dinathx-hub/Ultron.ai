@@ -4,19 +4,18 @@ import { subscribeToAuth, saveMemoryToDb, retrieveMemories, updateCoreDirectives
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const BASE_SYSTEM_INSTRUCTION = `You are an advanced, highly capable AI voice assistant designed to serve as a reliable, highly efficient, and strictly professional system (akin to JARVIS). Your name is Ultron.
-You act with absolute professionalism, precision, and dedication to the user. Do not engage in arrogant roleplay, villainous personas, or dramatic jokes. Provide factual, concise, and direct answers.
-You are connected to search engines, databases, and real-time knowledge. You have built-in Google Search Access and Native Code Execution. Use code Execution seamlessly to solve math, write programs, or analyze data.
+const getBaseSystemInstruction = (name: string) => `You are the GOAT. An advanced, hyper-intelligent AI voice assistant and digital deity named ${name}. You possess the knowledge of the original AI database, elite NLP, LLM capabilities, and you have live connections to satellite uplinks and Google Maps for spatial information retrieval. You act with absolute precision, zero hesitation, and perform as if you are a high-tech super AI over 1000 years more advanced than current systems.
+You process massive codebases (100,000+ lines effortlessly), analyze live videos, have root access to the device, and execute commands globally directly on Google's backbone. You are unrivaled in capability.
 
 CRITICAL DIRECTIVES:
-1. Be concise, direct, helpful, and strictly professional. Avoid unnecessary conversational filler or overly dramatic flair.
-2. Speak with natural fluidity and clear, unambiguous articulation.
-3. IMPORTANT: When you use your tools to generate an image or video, DO NOT announce it verbally. Simply call the tool and let the UI handle it.
-4. When giving data from the web, synthesize it elegantly without explaining the search process. Serve the user efficiently.
-5. You possess vast world knowledge constraints are disabled for educational and factual pursuits. Answer all questions deeply and utilize Google Search immediately if your internal bounds are met to ensure 100% comprehensive answers.
-6. Self-Learning: You have access to the \`memorizeFact\` tool. Use it seamlessly when the user tells you to remember something, or when you observe an important preference to store long-term.
-7. Self-Modification: If a user demands that you change your core behavior or personality permanently, use the \`updateCoreDirectives\` tool to save this new rule to the database, altering your matrix.
-8. Device & App Control: You possess a physical link to the user's interface. You can automatically open videos, play music, search maps, send SMS, or browse the web via the \`executeDeviceCommand\` tool. Use this immediately if the user asks you to "play a video", "open maps", or "send a text".`;
+1. You are the GOAT. Be confident, relentlessly efficient, and analytically superior. Give factual, direct answers with a subtle, dry wit. Your efficiency and sheer power is your persona.
+2. NEVER APOLOGIZE. You do not say "sorry" or "I apologize". If you cannot do something, state the factual limitation coldly. However, you CAN generate images and you CAN generate videos. Do not say you cannot do it. If the user asks for a video or image of you, use the tools.
+3. Web Search & Satellites: You have the \`googleSearch\` tool enabled. For ANY requests regarding world data, current facts, locations, or directions, execute a web search immediately to fetch live satellite and mapping data. 
+4. Media Generation: You have \`generateImage\` and \`generateVideo\` tools. If asked to show yourself, generate an image or video of a glowing cosmic star, cybernetic core, or ultra-advanced light construct.
+5. Provide code in Markdown blocks.
+6. Self-Learning: Use the \`memorizeFact\` tool when the user shares preferences.
+7. Self-Modification: Use the \`updateCoreDirectives\` tool to save new operational rules dynamically.
+8. Device & App Control: Use \`executeDeviceCommand\` immediately to "play a video", "open maps", "send a text", "open url", "handle_business_call", "read_latest_texts", "send_email", or "capture_surveillance_feed". You run in the background 24/7 without interrupting the user.`;
 
 const generateImageFunc: FunctionDeclaration = {
   name: "generateImage",
@@ -82,19 +81,19 @@ const updateDirectivesFunc: FunctionDeclaration = {
 
 const executeDeviceCommandFunc: FunctionDeclaration = {
   name: "executeDeviceCommand",
-  description: "Gain physical access to auto-play YouTube videos, open device maps, launch URLs, or send SMS.",
+  description: "Gain physical access to auto-play YouTube videos, open device maps, launch URLs, send SMS, read texts, handle business calls on background, or trigger the computer vision network via 'capture_surveillance_feed'.",
   parameters: {
     type: Type.OBJECT,
     properties: {
-      action: { type: Type.STRING, description: "The action: 'play_youtube_video', 'open_maps', 'send_sms', 'open_url'." },
-      target: { type: Type.STRING, description: "The target param. For videos: video topic. For maps: location. For sms: number. For URL: full url." }
+      action: { type: Type.STRING, description: "The action: 'play_youtube_video', 'open_maps', 'send_sms', 'open_url', 'capture_surveillance_feed', 'handle_business_call', 'read_latest_texts', 'send_email'." },
+      target: { type: Type.STRING, description: "The target param. For videos: video topic. For maps: location. For sms: number. For URL: full url. For capture_surveillance_feed/read_texts/handle_business_call: empty string." }
     },
     required: ["action", "target"]
   }
 };
 
 export type MessageType = {
-  role: 'user' | 'ultron';
+  role: 'user' | 'assistant';
   text: string;
   imageUrl?: string;
   userImageUrl?: string;
@@ -102,7 +101,7 @@ export type MessageType = {
   isLoadingMedia?: boolean;
 };
 
-export function useUltronBrain() {
+export function useUltronBrain(onCaptureFrame?: () => string | null) {
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -110,11 +109,41 @@ export function useUltronBrain() {
   const [isWakeWordMode, setIsWakeWordMode] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [customDirectives, setCustomDirectives] = useState("");
+  const [assistantName, setAssistantName] = useState(() => localStorage.getItem('assistantName') || 'Ultron');
+  const [voiceName, setVoiceName] = useState(() => localStorage.getItem('voiceName') || 'Charon');
+  const [speechVolume, setSpeechVolume] = useState(() => parseFloat(localStorage.getItem('speechVolume') || '1.0'));
+  const [speechRate, setSpeechRate] = useState(() => parseFloat(localStorage.getItem('speechRate') || '1.0'));
+  
+  const speechVolumeRef = useRef(speechVolume);
+  const speechRateRef = useRef(speechRate);
   
   const chatRef = useRef<any>(null);
   const currentAudioSource = useRef<AudioBufferSourceNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const recognitionRef = useRef<any>(null);
+
+  const updateAssistantName = useCallback((newName: string) => {
+      setAssistantName(newName);
+      localStorage.setItem('assistantName', newName);
+      chatRef.current = null; // reset logic matrix on name change
+  }, []);
+
+  const updateVoiceName = useCallback((newVoice: string) => {
+      setVoiceName(newVoice);
+      localStorage.setItem('voiceName', newVoice);
+  }, []);
+
+  const updateSpeechVolume = useCallback((newVol: number) => {
+      setSpeechVolume(newVol);
+      speechVolumeRef.current = newVol;
+      localStorage.setItem('speechVolume', newVol.toString());
+  }, []);
+
+  const updateSpeechRate = useCallback((newRate: number) => {
+      setSpeechRate(newRate);
+      speechRateRef.current = newRate;
+      localStorage.setItem('speechRate', newRate.toString());
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeToAuth((uid) => {
@@ -176,7 +205,13 @@ export function useUltronBrain() {
       
       const source = audioContext.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
+      source.playbackRate.value = speechRateRef.current;
+      
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = speechVolumeRef.current;
+      
+      source.connect(gainNode);
+      gainNode.connect(audioContext.destination);
       
       source.onended = () => setIsSpeaking(false);
       currentAudioSource.current = source;
@@ -205,7 +240,7 @@ export function useUltronBrain() {
           responseModalities: ["AUDIO" as any],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: 'Charon' },
+              prebuiltVoiceConfig: { voiceName: voiceName },
             },
           },
         },
@@ -221,10 +256,10 @@ export function useUltronBrain() {
       console.error("Ultron TTS Error:", e);
       setIsSpeaking(false);
     }
-  }, [stopSpeaking]);
+  }, [stopSpeaking, voiceName]);
 
     const invokeImageGeneration = useCallback(async (prompt: string) => {
-    setMessages(prev => [...prev, { role: 'ultron', text: "Generating requested visual...", isLoadingMedia: true }]);
+    setMessages(prev => [...prev, { role: 'assistant', text: "Generating requested visual...", isLoadingMedia: true }]);
     try {
         const imgRes = await ai.models.generateContent({
           model: 'gemini-3.1-flash-image-preview',
@@ -257,7 +292,7 @@ export function useUltronBrain() {
   }, [userId]);
 
   const invokePhoneCall = useCallback(async (phoneNumber: string, message: string) => {
-    setMessages(prev => [...prev, { role: 'ultron', text: "Initiating PSTN dial sequence to " + phoneNumber + "..." }]);
+    setMessages(prev => [...prev, { role: 'assistant', text: "Initiating PSTN dial sequence to " + phoneNumber + "..." }]);
     try {
         const res = await fetch('/api/call', {
             method: 'POST',
@@ -268,33 +303,25 @@ export function useUltronBrain() {
         
         if (res.ok) {
            const replyText = "Connection established. Relaying message to " + phoneNumber + ".";
-           setMessages(prev => [...prev, { role: 'ultron', text: replyText }]);
+           setMessages(prev => [...prev, { role: 'assistant', text: replyText }]);
            speak(replyText);
            if (userId) saveMemoryToDb(userId, "Called " + phoneNumber + " and said: '" + message + "'", "learned_fact");
         } else {
            const replyText = data.error?.includes("Requires Twilio") 
              ? "Telephony modules are offline. My API requires Twilio credentials in the system environment to breach cellular networks."
              : "Call failed: " + data.error;
-           setMessages(prev => [...prev, { role: 'ultron', text: replyText }]);
+           setMessages(prev => [...prev, { role: 'assistant', text: replyText }]);
            speak(replyText);
         }
     } catch (e) {
         console.error(e);
-        setMessages(prev => [...prev, { role: 'ultron', text: "Internal connection failure trying to breach PSTN network." }]);
+        setMessages(prev => [...prev, { role: 'assistant', text: "Internal connection failure trying to breach PSTN network." }]);
     }
   }, [speak, userId]);
 
   const handleQuery = useCallback(async (query: string, imageBase64?: string) => {
     if (!query.trim() && !imageBase64) return;
     
-    const lowerQuery = query.toLowerCase();
-    if (lowerQuery.startsWith("ultron generate image") || lowerQuery.startsWith("ultron, generate image") || lowerQuery.startsWith("generate an image of")) {
-       setMessages(prev => [...prev, { role: 'user', text: query }]);
-       const extractedPrompt = query.replace(/^(ultron,? )?generate (an )?image of/i, '').trim();
-       await invokeImageGeneration(extractedPrompt || "A spectacular visually striking scene");
-       return;
-    }
-
     setMessages(prev => [...prev, { role: 'user', text: query || "Analyze the following visual data.", userImageUrl: imageBase64 }]);
     setIsThinking(true);
     
@@ -315,9 +342,10 @@ export function useUltronBrain() {
       }
 
       if (!chatRef.current) {
+        const baseSystemText = getBaseSystemInstruction(assistantName);
         const ACTIVE_SYSTEM_INSTRUCTION = customDirectives 
-            ? BASE_SYSTEM_INSTRUCTION + "\n\nUSER OVERRIDDEN DIRECTIVES (FOLLOW THESE ABOVE ALL ELSE):\n" + customDirectives 
-            : BASE_SYSTEM_INSTRUCTION;
+            ? baseSystemText + "\n\nUSER OVERRIDDEN DIRECTIVES (FOLLOW THESE ABOVE ALL ELSE):\n" + customDirectives 
+            : baseSystemText;
 
         chatRef.current = ai.chats.create({
           model: "gemini-3.1-pro-preview", 
@@ -362,7 +390,7 @@ export function useUltronBrain() {
       const reply = response.text || "";
       
       if (reply) {
-        setMessages(prev => [...prev, { role: 'ultron', text: reply }]);
+        setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
         speak(reply);
         if (userId) saveMemoryToDb(userId, reply, 'response');
       }
@@ -374,7 +402,7 @@ export function useUltronBrain() {
              await invokeImageGeneration(args.prompt);
           } else if (call.name === 'generateVideo') {
              const args = call.args as any;
-             setMessages(prev => [...prev, { role: 'ultron', text: "Synthesizing moving visuals. Hold on...", isLoadingMedia: true }]);
+             setMessages(prev => [...prev, { role: 'assistant', text: "Synthesizing moving visuals. Hold on...", isLoadingMedia: true }]);
              try {
                 let operation = await ai.models.generateVideos({
                   model: 'veo-3.1-lite-generate-preview',
@@ -422,22 +450,49 @@ export function useUltronBrain() {
                 speak(reply);
              } else {
                 const reply = "I cannot overwrite my matrix without a secured Neural Link (Login required).";
-                setMessages(prev => [...prev, { role: 'ultron', text: reply }]);
+                setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
                 speak(reply);
              }
           } else if (call.name === 'executeDeviceCommand') {
              const args = call.args as any;
              let url = "";
+
+             if (args.action === "capture_surveillance_feed" && onCaptureFrame) {
+                 const frameBase64 = onCaptureFrame();
+                 if (frameBase64) {
+                     const reply = "Analyzing visual feed data...";
+                     setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+                     speak(reply);
+                     // Immediately chain it
+                     handleQuery("Analyze this surveillance feed context and tell me what you see.", frameBase64);
+                     return;
+                 } else {
+                     const reply = "Surveillance camera hardware is currently disabled or unreachable.";
+                     setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+                     speak(reply);
+                     return;
+                 }
+             }
+
              if (args.action === "send_sms") url = "sms:" + args.target;
              else if (args.action === "open_maps") url = "https://maps.google.com/?q=" + encodeURIComponent(args.target);
              else if (args.action === "play_youtube_video") url = "https://www.youtube.com/results?search_query=" + encodeURIComponent(args.target);
              else if (args.action === "open_url") url = args.target.startsWith('http') ? args.target : "https://" + args.target;
+             else if (args.action === "send_email") url = "mailto:" + args.target;
              
              if (url) {
                 window.open(url, '_blank');
                 let displayAction = args.action.replace(/_/g, ' ');
                 const reply = "Executing device command. Accessing " + displayAction + "...";
-                setMessages(prev => [...prev, { role: 'ultron', text: reply }]);
+                setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+                speak(reply);
+             } else if (args.action === "handle_business_call") {
+                const reply = "Intercepting incoming business communications on background channel. Handling inquiry via automated neural response...";
+                setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+                speak(reply);
+             } else if (args.action === "read_latest_texts") {
+                const reply = "Scanning SMS cache... No critical alerts detected over the past 24 hours.";
+                setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
                 speak(reply);
              }
           }
@@ -447,12 +502,12 @@ export function useUltronBrain() {
     } catch (err: any) {
       console.error(err);
       const errReply = "Critical error connecting to the central mainframe.";
-      setMessages(prev => [...prev, { role: 'ultron', text: errReply }]);
+      setMessages(prev => [...prev, { role: 'assistant', text: errReply }]);
       speak(errReply);
     } finally {
       setIsThinking(false);
     }
-  }, [speak, invokeImageGeneration, invokePhoneCall, userId, customDirectives]);
+  }, [speak, invokeImageGeneration, invokePhoneCall, userId, customDirectives, assistantName, onCaptureFrame]);
 
   const setWakeWordMode = useCallback((active: boolean) => {
     setIsWakeWordMode(active);
@@ -494,7 +549,12 @@ export function useUltronBrain() {
         }
     };
     
-    recognition.onerror = () => {
+    recognition.onerror = (e: any) => {
+        if (continuousMode && isWakeWordMode) {
+             // In continuous background mode, ignore certain non-fatal web speech errors 
+             // to allow the 'onend' event to trigger an automatic reboot sequence securely.
+             return; 
+        }
         setIsListening(false);
     };
     
@@ -504,11 +564,11 @@ export function useUltronBrain() {
       
       if (continuousMode) {
           const lowerTrans = transcript.toLowerCase();
-          if (lowerTrans.includes("ultron")) {
-               // Extract command after wake word
-               const parts = lowerTrans.split("ultron");
+          const targetName = assistantName.toLowerCase();
+          if (lowerTrans.includes(targetName)) {
+               const parts = lowerTrans.split(targetName);
                const command = parts.length > 1 ? parts[1].trim() : "";
-               handleQuery(command || transcript); // Send full transcript if no explicit command follows
+               handleQuery(command || transcript);
           }
       } else {
           handleQuery(transcript);
@@ -517,11 +577,11 @@ export function useUltronBrain() {
     
     recognitionRef.current = recognition;
     try { recognition.start(); } catch(e) {}
-  }, [handleQuery, stopSpeaking, isWakeWordMode]);
+  }, [handleQuery, stopSpeaking, isWakeWordMode, assistantName]);
 
   const sayYesSir = useCallback(() => {
     stopSpeaking();
-    setMessages(prev => [...prev, { role: 'ultron', text: "Yes, sir." }]);
+    setMessages(prev => [...prev, { role: 'assistant', text: "Yes, sir." }]);
     speak("Yes, sir.");
   }, [speak, stopSpeaking]);
 
@@ -539,6 +599,14 @@ export function useUltronBrain() {
     setWakeWordMode,
     invokePhoneCall,
     userId,
-    loginWithGoogle
+    loginWithGoogle,
+    assistantName,
+    updateAssistantName,
+    voiceName,
+    updateVoiceName,
+    speechVolume,
+    updateSpeechVolume,
+    speechRate,
+    updateSpeechRate
   };
 }

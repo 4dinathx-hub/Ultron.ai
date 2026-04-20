@@ -19,10 +19,10 @@ service cloud.firestore {
 
     // --- SCHEMA VALIDATORS ---
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'createdAt']) && data.keys().size() <= 3
+      return data.keys().hasAll(['uid', 'createdAt']) && data.keys().size() <= 4
         && data.uid is string && data.uid.size() <= 128
-        && data.createdAt == request.time
-        && ( !('email' in data) || (data.email is string && data.email.size() <= 256) );
+        && ( !('email' in data) || (data.email is string && data.email.size() <= 256) )
+        && ( !('customDirectives' in data) || (data.customDirectives is string && data.customDirectives.size() <= 500000) );
     }
 
     function isValidMemory(data, uid) {
@@ -41,12 +41,13 @@ service cloud.firestore {
                     && isValidId(userId)
                     && request.auth.uid == userId
                     && isValidUser(incoming())
+                    && incoming().createdAt == request.time
                     && incoming().uid == userId;
       
       allow update: if isSignedIn() 
                     && request.auth.uid == userId
                     && isValidUser(incoming())
-                    && incoming().diff(existing()).affectedKeys().hasOnly(['email'])
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'customDirectives'])
                     && incoming().uid == existing().uid
                     && incoming().createdAt == existing().createdAt;
                     

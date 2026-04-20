@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer, collection, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, getDocFromServer, collection, addDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json'; // Adjust path if needed
 
 const app = initializeApp(firebaseConfig);
@@ -30,11 +30,14 @@ export function subscribeToAuth(callback: (uid: string | null) => void) {
       const uid = user.uid;
       try {
         const userRef = doc(db, 'users', uid);
-        await setDoc(userRef, {
-          uid,
-          createdAt: serverTimestamp(),
-          email: user.email
-        }, { merge: true });
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+           await setDoc(userRef, {
+             uid,
+             createdAt: serverTimestamp(),
+             email: user.email || ""
+           });
+        }
       } catch(e) {
         console.error("Ultron: Failed to ensure user DB node.", e);
       }
@@ -91,7 +94,7 @@ export async function retrieveMemories(userId: string | null, limitCount: number
 export async function updateCoreDirectives(userId: string | null, directives: string) {
   if (!userId) return;
   try {
-    await setDoc(doc(db, 'users', userId), { customDirectives: directives }, { merge: true });
+    await updateDoc(doc(db, 'users', userId), { customDirectives: directives });
   } catch(e) {
     console.error("Ultron: Error updating core directives: ", e);
   }

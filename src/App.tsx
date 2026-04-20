@@ -3,20 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Menu, Scaling, User, Image as ImageIcon, Activity, Globe, TerminalSquare, Plus, Mic, Sparkles, X, Ear, Settings, Video, Phone, Shield, Radio, Cpu } from 'lucide-react';
-import React, { useState, useRef, useEffect } from 'react';
+import { Menu, Scaling, User, Image as ImageIcon, Activity, Globe, TerminalSquare, Plus, Mic, Sparkles, X, Ear, Settings, Video, Phone, Shield, Radio, Cpu, Lock } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'motion/react';
 import { useUltronBrain } from './hooks/useUltronBrain';
 import { useMotionDetection } from './hooks/useMotionDetection';
 import { MessageContent } from './components/MessageContent';
 
 export default function App() {
+  const captureFrame = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return null;
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(videoRef.current, 0, 0, 64, 48);
+    return canvasRef.current.toDataURL('image/jpeg', 0.5);
+  }, []);
+
   const { 
     messages, isSpeaking, isListening, isThinking, 
     startListening, handleQuery, sayYesSir, stopSpeaking,
     isWakeWordMode, setWakeWordMode, invokePhoneCall,
-    userId, loginWithGoogle
-  } = useUltronBrain();
+    userId, loginWithGoogle,
+    assistantName, updateAssistantName,
+    voiceName, updateVoiceName,
+    speechVolume, updateSpeechVolume,
+    speechRate, updateSpeechRate
+  } = useUltronBrain(captureFrame);
   
   const [inputText, setInputText] = useState('');
   const [selectedImageStr, setSelectedImageStr] = useState<string | null>(null);
@@ -25,6 +37,7 @@ export default function App() {
   const [isControlOpen, setIsControlOpen] = useState(false);
   const [callNumber, setCallNumber] = useState('');
   const [callMsg, setCallMsg] = useState('');
+  const [activeTab, setActiveTab] = useState<'ai' | 'friends'>('ai');
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +109,7 @@ export default function App() {
                </h3>
                <div className="w-full h-40 bg-slate-900 rounded-xl overflow-hidden relative shadow-inner border border-slate-800 group">
                   <video ref={videoRef} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" muted playsInline />
+                  <canvas ref={canvasRef} width="64" height="48" className="hidden" />
                   {/* Fake UI Overlay */}
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/scan-lines-light.png')] opacity-10 pointer-events-none" />
                   <div className="absolute top-3 right-3 flex items-center gap-2">
@@ -168,6 +182,62 @@ export default function App() {
                </label>
             </div>
 
+             {/* Personalization */}
+             <div className="flex flex-col gap-3">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-2">
+                   <User className="w-4 h-4 text-indigo-400" /> Identity Matrix
+                </h3>
+                <div className="flex flex-col gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                   <div>
+                       <label className="text-xs text-gray-500 font-semibold mb-2 block">ASSISTANT DESIGNATION</label>
+                       <input 
+                          value={assistantName} 
+                          onChange={e => updateAssistantName(e.target.value)} 
+                          placeholder="e.g. ULTRON" 
+                          className="w-full bg-white border border-gray-200 p-2.5 rounded-lg text-sm text-gray-800 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 transition"
+                       />
+                   </div>
+                   <div>
+                       <label className="text-xs text-gray-500 font-semibold mb-2 block">VOCAL SYNTHESIZER</label>
+                       <select 
+                          value={voiceName}
+                          onChange={e => updateVoiceName(e.target.value)}
+                          className="w-full bg-white border border-gray-200 p-2.5 rounded-lg text-sm text-gray-800 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 transition"
+                       >
+                           <option value="Aoede">Aoede</option>
+                           <option value="Charon">Charon (Male - Default)</option>
+                           <option value="Fenrir">Fenrir (Male)</option>
+                           <option value="Kore">Kore</option>
+                           <option value="Puck">Puck</option>
+                       </select>
+                   </div>
+                   <div>
+                       <label className="flex items-center justify-between text-xs text-gray-500 font-semibold mb-2">
+                           OUTPUT VOLUME <span className="text-indigo-500 font-bold">{Math.round(speechVolume * 100)}%</span>
+                       </label>
+                       <input 
+                           type="range" 
+                           min="0" max="2" step="0.1"
+                           value={speechVolume}
+                           onChange={e => updateSpeechVolume(parseFloat(e.target.value))}
+                           className="w-full cursor-pointer accent-indigo-500"
+                       />
+                   </div>
+                   <div>
+                       <label className="flex items-center justify-between text-xs text-gray-500 font-semibold mb-2">
+                           PLAYBACK SPEED <span className="text-indigo-500 font-bold">{speechRate.toFixed(1)}x</span>
+                       </label>
+                       <input 
+                           type="range" 
+                           min="0.5" max="2" step="0.1"
+                           value={speechRate}
+                           onChange={e => updateSpeechRate(parseFloat(e.target.value))}
+                           className="w-full cursor-pointer accent-indigo-500"
+                       />
+                   </div>
+                </div>
+             </div>
+
             {/* Quantum Calculator */}
             <div className="flex flex-col gap-3">
                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-[0.15em] flex items-center gap-2">
@@ -206,9 +276,25 @@ export default function App() {
       {/* Top Header */}
       <header className="flex items-center justify-between p-4 px-6 md:px-8 z-10 w-full shrink-0 bg-white/80 backdrop-blur-sm border-b border-gray-100">
         <Menu className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-900 transition" />
-        <h1 className="text-xl font-bold tracking-[0.2em] text-gray-800">
-          ULTRON
+        <h1 className="text-xl font-bold tracking-[0.2em] text-gray-800 hidden sm:block">
+          {assistantName.toUpperCase()}
         </h1>
+        
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+           <button 
+              onClick={() => setActiveTab('ai')}
+              className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${activeTab === 'ai' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+           >
+              AI Matrix
+           </button>
+           <button 
+              onClick={() => setActiveTab('friends')}
+              className={`px-4 py-1.5 text-sm font-semibold rounded-md transition ${activeTab === 'friends' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+           >
+              Comms Network
+           </button>
+        </div>
+
         <div className="flex items-center gap-4">
           <Scaling 
             className="w-5 h-5 text-gray-400 cursor-pointer hover:text-emerald-500 transition transform hover:scale-110" 
@@ -227,12 +313,14 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto px-4 md:px-12 pb-32 pt-4 scrollbar-hide flex flex-col items-start w-full relative">
-        {messages.length === 0 ? (
-          <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto h-full pt-[5vh] lg:pt-[8vh]">
-            <div className="flex flex-col mb-4 leading-tight">
-              <span className="text-2xl md:text-3xl text-gray-500 tracking-wide">
-                Hi Adinath Om
-              </span>
+        {activeTab === 'ai' ? (
+           <>
+               {messages.length === 0 ? (
+                 <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto h-full pt-[5vh] lg:pt-[8vh]">
+                   <div className="flex flex-col mb-4 leading-tight">
+                     <span className="text-2xl md:text-3xl text-gray-500 tracking-wide">
+                       Hi Adinath Om
+                     </span>
               <span className="text-4xl md:text-5xl font-semibold mt-1 tracking-tight text-gray-900">
                 Where should we start?
               </span>
@@ -282,9 +370,20 @@ export default function App() {
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {msg.role === 'ultron' && (
-                  <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center border border-slate-700 shrink-0 mr-4 self-start mt-1">
-                    <Sparkles className="w-4 h-4 text-white" />
+                {msg.role === 'assistant' && (
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-slate-900 to-slate-800 flex items-center justify-center border border-white/5 ring-1 ring-slate-800/50 shadow-[0_0_15px_-3px_rgba(255,255,255,0.1)] shrink-0 mr-4 self-start mt-1 relative overflow-hidden group">
+                     {/* Inner glow */}
+                     <div className="absolute inset-0 bg-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-1000"></div>
+                     <svg className="w-5 h-5 text-white animate-[spin_8s_linear_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0">
+                        <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" fill="url(#gemini_paint)"/>
+                        <defs>
+                          <linearGradient id="gemini_paint" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#60A5FA"/>
+                            <stop offset="0.5" stopColor="#A78BFA"/>
+                            <stop offset="1" stopColor="#F472B6"/>
+                          </linearGradient>
+                        </defs>
+                     </svg>
                   </div>
                 )}
                 
@@ -318,20 +417,70 @@ export default function App() {
               <motion.div 
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex w-full justify-start items-center"
+                className="flex w-full justify-start items-center ml-2"
               >
-                 <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center border border-slate-700 shrink-0 mr-4 self-start mt-1 animate-pulse">
-                    <Sparkles className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="text-gray-400 font-medium animate-pulse">Accessing node...</div>
+                 <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mr-4 self-start mt-1 relative">
+                    <svg className="w-5 h-5 text-white animate-spin origin-center" style={{ animationDuration: '1.5s' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0">
+                       <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" fill="url(#gemini_paint_loading)"/>
+                       <defs>
+                         <linearGradient id="gemini_paint_loading" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                           <stop stopColor="#60A5FA"/>
+                           <stop offset="0.5" stopColor="#A78BFA"/>
+                           <stop offset="1" stopColor="#F472B6"/>
+                         </linearGradient>
+                       </defs>
+                    </svg>
+                    <div className="absolute inset-0 rounded-full animate-ping bg-indigo-500/20" style={{ animationDuration: '1.5s' }}></div>
+                 </div>
+                 <div className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 font-semibold tracking-wide text-sm animate-pulse">Computing matrix permutations...</div>
               </motion.div>
             )}
             <div ref={bottomRef} className="h-4"></div>
           </div>
         )}
+           </>
+        ) : (
+           <div className="w-full max-w-5xl mx-auto h-[calc(100vh-10rem)] flex flex-col md:flex-row gap-6">
+               <div className="w-full md:w-1/3 bg-white border border-gray-200 shadow-sm rounded-2xl flex flex-col overflow-hidden">
+                   <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-white/10">
+                      <h3 className="font-semibold flex items-center gap-2"><Radio className="w-4 h-4 text-emerald-400" /> Active Nodes</h3>
+                      <span className="text-xs font-mono bg-white/20 px-2 py-1 rounded-md">LIVE</span>
+                   </div>
+                   <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
+                      <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl cursor-default flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold">G</div>
+                         <div className="flex-1">
+                            <h4 className="text-sm font-semibold text-gray-900">Global Beacon</h4>
+                            <p className="text-xs text-indigo-600 font-medium">Public Matrix</p>
+                         </div>
+                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                      </div>
+                      <div className="px-4 py-8 text-center flex flex-col items-center">
+                          <Lock className="w-8 h-8 text-gray-300 mb-2" />
+                          <p className="text-xs text-gray-500 font-medium max-w-[200px]">End-to-End P2P decryption requires explicit peer IDs.</p>
+                      </div>
+                   </div>
+               </div>
+               <div className="flex-1 bg-white border border-gray-200 shadow-sm rounded-2xl flex flex-col overflow-hidden relative">
+                   <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                       <h3 className="font-semibold text-gray-800">Global Beacon Channel</h3>
+                       <span className="text-xs text-gray-400 font-mono">ENCRYPTED // SHA-256</span>
+                   </div>
+                   <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
+                       <Radio className="w-12 h-12 text-indigo-200 mb-4 animate-pulse" />
+                       <h2 className="text-xl font-bold text-gray-700 mb-2">Comms Network Offline</h2>
+                       <p className="text-sm text-gray-500 max-w-sm mb-6">Matrix peer-to-peer data channel is currently restricted pending node deployment.</p>
+                       <button className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold tracking-wide text-sm transition shadow-md">
+                          Initialize Node Protocol
+                       </button>
+                   </div>
+               </div>
+           </div>
+        )}
       </main>
 
-      {/* Input Fixed at Bottom */}
+      {/* Input Fixed at Bottom - Only for AI Tab currently */}
+      {activeTab === 'ai' && (
       <div className="absolute bottom-0 left-0 right-0 w-full bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA] to-transparent pt-12 pb-6 px-4 md:px-8 z-20 flex flex-col items-center">
          
          {/* Top action indicator */}
@@ -425,6 +574,7 @@ export default function App() {
             </div>
          </form>
       </div>
+      )}
 
     </div>
   );
